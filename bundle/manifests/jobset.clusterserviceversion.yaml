@@ -182,7 +182,11 @@ spec:
                 - --leader-elect
                 command:
                 - /manager
+<<<<<<< HEAD
                 image: gcr.io/k8s-staging-jobset/jobset:v0.8.0-devel-20-gdebbf2f-dirty
+=======
+                image: quay.io/redhat-user-workloads/kueue-workloads-tenant/kubernetes-sigs-jobset@sha256:493a23302b343600e5f261f75f6e67f4e4667bf39814b79618d33736ee8b2a72
+>>>>>>> openshift/main
                 livenessProbe:
                   httpGet:
                     path: /healthz
