@@ -133,6 +133,9 @@ var/
 pip-log.txt
 pip-delete-this-directory.txt
 
+# github workflows
+sdk/python/.github
+
 # Unit test / coverage reports
 htmlcov/
 .tox/

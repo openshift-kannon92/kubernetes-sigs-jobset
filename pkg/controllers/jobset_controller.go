@@ -30,6 +30,7 @@ import (
 	batchv1 "k8s.io/api/batch/v1"
 	corev1 "k8s.io/api/core/v1"
 	apiequality "k8s.io/apimachinery/pkg/api/equality"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -125,8 +126,11 @@ func (r *JobSetReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctr
 		return result, err
 	}
 
+	if err := r.updateJobSetStatus(ctx, &js, &updateStatusOpts); apierrors.IsConflict(err) {
+		return ctrl.Result{Requeue: true}, nil
+	}
 	// At the end of this Reconcile attempt, do one API call to persist all the JobSet status changes.
-	return ctrl.Result{RequeueAfter: result.RequeueAfter}, r.updateJobSetStatus(ctx, &js, &updateStatusOpts)
+	return ctrl.Result{RequeueAfter: result.RequeueAfter}, err
 }
 
 // reconcile is the internal method containing the core JobSet reconciliation logic.
@@ -254,7 +258,9 @@ func (r *JobSetReconciler) updateJobSetStatus(ctx context.Context, js *jobset.Jo
 	if updateStatusOpts.shouldUpdate {
 		// Make single API call to persist the JobSet status update.
 		if err := r.Status().Update(ctx, js); err != nil {
-			log.Error(err, "updating jobset status")
+			if !apierrors.IsConflict(err) {
+				log.Error(err, "updating jobset status")
+			}
 			return err
 		}
 		// If the status update was successful, emit any enqueued events.
@@ -412,14 +418,27 @@ func (r *JobSetReconciler) resumeJobsIfNecessary(ctx context.Context, js *jobset
 	}
 
 	startupPolicy := js.Spec.StartupPolicy
+
+	// Map where key is the Job name and value is the Job replicas.
+	rJobsReplicas := map[string]int32{}
+
 	// If JobSpec is unsuspended, ensure all active child Jobs are also
 	// unsuspended and update the suspend condition to true.
 	for _, replicatedJob := range js.Spec.ReplicatedJobs {
 		replicatedJobStatus := findReplicatedJobStatus(replicatedJobStatuses, replicatedJob.Name)
+
+		rJobsReplicas[replicatedJob.Name] = replicatedJob.Replicas
+
+		// For depends on, the ReplicatedJob is created only after the previous ReplicatedJob reached the status.
+		if !dependencyReachedStatus(replicatedJob, rJobsReplicas, replicatedJobStatuses) {
+			continue
+		}
+
 		// If this replicatedJob has already started, continue.
 		if inOrderStartupPolicy(startupPolicy) && allReplicasStarted(replicatedJob.Replicas, replicatedJobStatus) {
 			continue
 		}
+
 		jobsFromRJob := replicatedJobToActiveJobs[replicatedJob.Name]
 		for _, job := range jobsFromRJob {
 			if !jobSuspended(job) {
@@ -491,17 +510,27 @@ func (r *JobSetReconciler) resumeJob(ctx context.Context, job *batchv1.Job, repl
 	return r.Update(ctx, job)
 }
 
-func (r *JobSetReconciler) reconcileReplicatedJobs(ctx context.Context, js *jobset.JobSet, ownedJobs *childJobs, replicatedJobStatus []jobset.ReplicatedJobStatus, updateStatusOpts *statusUpdateOpts) error {
+func (r *JobSetReconciler) reconcileReplicatedJobs(ctx context.Context, js *jobset.JobSet, ownedJobs *childJobs, replicatedJobStatuses []jobset.ReplicatedJobStatus, updateStatusOpts *statusUpdateOpts) error {
 	log := ctrl.LoggerFrom(ctx)
 	startupPolicy := js.Spec.StartupPolicy
 
+	// Map where key is the Job name and value is the Job replicas.
+	rJobsReplicas := map[string]int32{}
+
 	for _, replicatedJob := range js.Spec.ReplicatedJobs {
 		jobs := constructJobsFromTemplate(js, &replicatedJob, ownedJobs)
-		status := findReplicatedJobStatus(replicatedJobStatus, replicatedJob.Name)
+		replicatedJobStatus := findReplicatedJobStatus(replicatedJobStatuses, replicatedJob.Name)
+
+		rJobsReplicas[replicatedJob.Name] = replicatedJob.Replicas
+
+		// For depends on, the ReplicatedJob is created only after the previous ReplicatedJob reached the status.
+		if !dependencyReachedStatus(replicatedJob, rJobsReplicas, replicatedJobStatuses) {
+			continue
+		}
 
 		// For startup policy, if the replicatedJob is started we can skip this loop.
 		// Jobs have been created.
-		if !jobSetSuspended(js) && inOrderStartupPolicy(startupPolicy) && allReplicasStarted(replicatedJob.Replicas, status) {
+		if !jobSetSuspended(js) && inOrderStartupPolicy(startupPolicy) && allReplicasStarted(replicatedJob.Replicas, replicatedJobStatus) {
 			continue
 		}
 
@@ -859,13 +888,13 @@ func jobSuspended(job *batchv1.Job) bool {
 	return ptr.Deref(job.Spec.Suspend, false)
 }
 
-func findReplicatedJobStatus(replicatedJobStatus []jobset.ReplicatedJobStatus, replicatedJobName string) jobset.ReplicatedJobStatus {
+func findReplicatedJobStatus(replicatedJobStatus []jobset.ReplicatedJobStatus, replicatedJobName string) *jobset.ReplicatedJobStatus {
 	for _, status := range replicatedJobStatus {
 		if status.Name == replicatedJobName {
-			return status
+			return &status
 		}
 	}
-	return jobset.ReplicatedJobStatus{}
+	return nil
 }
 
 // managedByExternalController returns a pointer to the name of the external controller managing
