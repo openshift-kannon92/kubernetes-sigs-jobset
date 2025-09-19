@@ -88,6 +88,51 @@ the coordinator pod.</p>
 </tbody>
 </table>
 
+## `DependsOn`     {#jobset-x-k8s-io-v1alpha2-DependsOn}
+    
+
+**Appears in:**
+
+- [ReplicatedJob](#jobset-x-k8s-io-v1alpha2-ReplicatedJob)
+
+
+<p>DependsOn defines the dependency on the previous ReplicatedJob status.</p>
+
+
+<table class="table">
+<thead><tr><th width="30%">Field</th><th>Description</th></tr></thead>
+<tbody>
+    
+  
+<tr><td><code>name</code> <B>[Required]</B><br/>
+<code>string</code>
+</td>
+<td>
+   <p>Name of the previous ReplicatedJob.</p>
+</td>
+</tr>
+<tr><td><code>status</code> <B>[Required]</B><br/>
+<a href="#jobset-x-k8s-io-v1alpha2-DependsOnStatus"><code>DependsOnStatus</code></a>
+</td>
+<td>
+   <p>Status defines the condition for the ReplicatedJob. Only Ready or Complete status can be set.</p>
+</td>
+</tr>
+</tbody>
+</table>
+
+## `DependsOnStatus`     {#jobset-x-k8s-io-v1alpha2-DependsOnStatus}
+    
+(Alias of `string`)
+
+**Appears in:**
+
+- [DependsOn](#jobset-x-k8s-io-v1alpha2-DependsOn)
+
+
+
+
+
 ## `FailurePolicy`     {#jobset-x-k8s-io-v1alpha2-FailurePolicy}
     
 
@@ -108,6 +153,14 @@ the coordinator pod.</p>
 <td>
    <p>MaxRestarts defines the limit on the number of JobSet restarts.
 A restart is achieved by recreating all active child jobs.</p>
+</td>
+</tr>
+<tr><td><code>restartStrategy</code><br/>
+<a href="#jobset-x-k8s-io-v1alpha2-JobSetRestartStrategy"><code>JobSetRestartStrategy</code></a>
+</td>
+<td>
+   <p>RestartStrategy defines the strategy to use when restarting the JobSet.
+Defaults to Recreate.</p>
 </td>
 </tr>
 <tr><td><code>rules</code> <B>[Required]</B><br/>
@@ -193,6 +246,18 @@ An empty list will apply to all replicatedJobs.</p>
 </tbody>
 </table>
 
+## `JobSetRestartStrategy`     {#jobset-x-k8s-io-v1alpha2-JobSetRestartStrategy}
+    
+(Alias of `string`)
+
+**Appears in:**
+
+- [FailurePolicy](#jobset-x-k8s-io-v1alpha2-FailurePolicy)
+
+
+
+
+
 ## `JobSetSpec`     {#jobset-x-k8s-io-v1alpha2-JobSetSpec}
     
 
@@ -247,7 +312,8 @@ finished with status failed.</p>
 <a href="#jobset-x-k8s-io-v1alpha2-StartupPolicy"><code>StartupPolicy</code></a>
 </td>
 <td>
-   <p>StartupPolicy, if set, configures in what order jobs must be started</p>
+   <p>StartupPolicy, if set, configures in what order jobs must be started
+Deprecated: StartupPolicy is deprecated, please use the DependsOn API.</p>
 </td>
 </tr>
 <tr><td><code>suspend</code> <B>[Required]</B><br/>
@@ -322,7 +388,7 @@ the JobSet becomes eligible to be deleted immediately after it finishes.</p>
 <td>
    <span class="text-muted">No description provided.</span></td>
 </tr>
-<tr><td><code>restarts</code> <B>[Required]</B><br/>
+<tr><td><code>restarts</code><br/>
 <code>int32</code>
 </td>
 <td>
@@ -341,7 +407,7 @@ the JobSet becomes eligible to be deleted immediately after it finishes.</p>
 </td>
 <td>
    <p>TerminalState the state of the JobSet when it finishes execution.
-It can be either Complete or Failed. Otherwise, it is empty by default.</p>
+It can be either Completed or Failed. Otherwise, it is empty by default.</p>
 </td>
 </tr>
 <tr><td><code>replicatedJobsStatus</code><br/>
@@ -433,6 +499,13 @@ Defaults to True.</p>
 for the Job name.</p>
 </td>
 </tr>
+<tr><td><code>groupName</code> <B>[Required]</B><br/>
+<code>string</code>
+</td>
+<td>
+   <p>GroupName defines the name of the group this ReplicatedJob belongs to. Defaults to &quot;default&quot;</p>
+</td>
+</tr>
 <tr><td><code>template</code> <B>[Required]</B><br/>
 <a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.28/#jobtemplatespec-v1-batch"><code>k8s.io/api/batch/v1.JobTemplateSpec</code></a>
 </td>
@@ -446,6 +519,21 @@ for the Job name.</p>
 <td>
    <p>Replicas is the number of jobs that will be created from this ReplicatedJob's template.
 Jobs names will be in the format: &lt;jobSet.name&gt;-&lt;spec.replicatedJob.name&gt;-<!-- raw HTML omitted --></p>
+</td>
+</tr>
+<tr><td><code>dependsOn</code><br/>
+<a href="#jobset-x-k8s-io-v1alpha2-DependsOn"><code>[]DependsOn</code></a>
+</td>
+<td>
+   <p>DependsOn is an optional list that specifies the preceding ReplicatedJobs upon which
+the current ReplicatedJob depends. If specified, the ReplicatedJob will be created
+only after the referenced ReplicatedJobs reach their desired state.
+The Order of ReplicatedJobs is defined by their enumeration in the slice.
+Note, that the first ReplicatedJob in the slice cannot use the DependsOn API.
+Currently, only a single item is supported in the DependsOn list.
+If JobSet is suspended the all active ReplicatedJobs will be suspended. When JobSet is
+resumed the Job sequence starts again.
+This API is mutually exclusive with the StartupPolicy API.</p>
 </td>
 </tr>
 </tbody>

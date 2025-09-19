@@ -31,7 +31,6 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	apiequality "k8s.io/apimachinery/pkg/api/equality"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
-	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
@@ -285,8 +284,8 @@ func (r *JobSetReconciler) getChildJobs(ctx context.Context, js *jobset.JobSet) 
 	// Categorize each job into a bucket: active, successful, failed, or delete.
 	ownedJobs := childJobs{}
 	for i, job := range childJobList.Items {
-		// Jobs with jobset.sigs.k8s.io/restart-attempt < jobset.status.restarts are marked for
-		// deletion, as they were part of the previous JobSet run.
+		// Jobs with jobset.sigs.k8s.io/restart-attempt < restarts are marked for deletion.
+
 		jobRestarts, err := strconv.Atoi(job.Labels[constants.RestartsKey])
 		if err != nil {
 			log.Error(err, fmt.Sprintf("invalid value for label %s, must be integer", constants.RestartsKey))
@@ -294,6 +293,7 @@ func (r *JobSetReconciler) getChildJobs(ctx context.Context, js *jobset.JobSet) 
 			return nil, err
 		}
 		if int32(jobRestarts) < js.Status.Restarts {
+			log.V(2).Info("child Job marked for recreation as value of restarts label is less than target", "name", job.Name, constants.RestartsKey, jobRestarts, "target", js.Status.Restarts)
 			ownedJobs.previous = append(ownedJobs.previous, &childJobList.Items[i])
 			continue
 		}
@@ -628,7 +628,7 @@ func (r *JobSetReconciler) createHeadlessSvcIfNecessary(ctx context.Context, js 
 	var headlessSvc corev1.Service
 	subdomain := GetSubdomain(js)
 	if err := r.Get(ctx, types.NamespacedName{Name: subdomain, Namespace: js.Namespace}, &headlessSvc); err != nil {
-		if !k8serrors.IsNotFound(err) {
+		if !apierrors.IsNotFound(err) {
 			return err
 		}
 		headlessSvc := corev1.Service{
@@ -769,6 +769,7 @@ func labelAndAnnotateObject(obj metav1.Object, js *jobset.JobSet, rjob *jobset.R
 	labels := make(map[string]string)
 	maps.Copy(labels, obj.GetLabels())
 	labels[jobset.JobSetNameKey] = js.Name
+	labels[jobset.JobSetUIDKey] = string(js.GetUID())
 	labels[jobset.ReplicatedJobNameKey] = rjob.Name
 	labels[constants.RestartsKey] = strconv.Itoa(int(js.Status.Restarts))
 	labels[jobset.ReplicatedJobReplicas] = strconv.Itoa(int(rjob.Replicas))
@@ -776,10 +777,14 @@ func labelAndAnnotateObject(obj metav1.Object, js *jobset.JobSet, rjob *jobset.R
 	labels[jobset.JobIndexKey] = strconv.Itoa(jobIdx)
 	labels[jobset.JobKey] = jobHashKey(js.Namespace, jobName)
 	labels[jobset.JobGlobalIndexKey] = globalJobIndex(js, rjob.Name, jobIdx)
+	labels[jobset.GroupNameKey] = rjob.GroupName
+	labels[jobset.GroupReplicasKey] = groupReplicas(js, rjob.GroupName)
+	labels[jobset.JobGroupIndexKey] = groupJobIndex(js, rjob.GroupName, rjob.Name, jobIdx)
 
 	annotations := make(map[string]string)
 	maps.Copy(annotations, obj.GetAnnotations())
 	annotations[jobset.JobSetNameKey] = js.Name
+	annotations[jobset.JobSetUIDKey] = string(js.GetUID())
 	annotations[jobset.ReplicatedJobNameKey] = rjob.Name
 	annotations[constants.RestartsKey] = strconv.Itoa(int(js.Status.Restarts))
 	annotations[jobset.ReplicatedJobReplicas] = strconv.Itoa(int(rjob.Replicas))
@@ -787,6 +792,9 @@ func labelAndAnnotateObject(obj metav1.Object, js *jobset.JobSet, rjob *jobset.R
 	annotations[jobset.JobIndexKey] = strconv.Itoa(jobIdx)
 	annotations[jobset.JobKey] = jobHashKey(js.Namespace, jobName)
 	annotations[jobset.JobGlobalIndexKey] = globalJobIndex(js, rjob.Name, jobIdx)
+	annotations[jobset.GroupNameKey] = rjob.GroupName
+	annotations[jobset.GroupReplicasKey] = groupReplicas(js, rjob.GroupName)
+	annotations[jobset.JobGroupIndexKey] = groupJobIndex(js, rjob.GroupName, rjob.Name, jobIdx)
 
 	// Apply coordinator annotation/label if a coordinator is defined in the JobSet spec.
 	if js.Spec.Coordinator != nil {
@@ -997,7 +1005,7 @@ func setJobSetCompletedCondition(js *jobset.JobSet, updateStatusOpts *statusUpda
 	setCondition(js, makeCompletedConditionsOpts(), updateStatusOpts)
 	js.Status.TerminalState = string(jobset.JobSetCompleted)
 	// Update the metrics
-	metrics.JobSetCompleted(fmt.Sprintf("%s/%s", js.Namespace, js.Name))
+	metrics.JobSetCompleted(js.Name, js.Namespace)
 }
 
 // setJobSetSuspendedCondition sets a condition on the JobSet status indicating it is currently suspended.
@@ -1117,4 +1125,32 @@ func globalReplicas(js *jobset.JobSet) string {
 		currGlobalReplicas += int(rjob.Replicas)
 	}
 	return strconv.Itoa(currGlobalReplicas)
+}
+
+// groupJobIndex determines the job group index for a given job. The job group index is a unique
+// index for the job within its group, with values ranging from 0 to N-1,
+// where N=total number of jobs in the group.
+func groupJobIndex(js *jobset.JobSet, groupName string, replicatedJobName string, jobIdx int) string {
+	currTotalJobs := 0
+	for _, rjob := range js.Spec.ReplicatedJobs {
+		if rjob.GroupName == groupName {
+			if rjob.Name == replicatedJobName {
+				return strconv.Itoa(currTotalJobs + jobIdx)
+			}
+			currTotalJobs += int(rjob.Replicas)
+		}
+	}
+	return ""
+}
+
+// groupReplicas calculates the total number of replicas across all replicated jobs in a JobSet
+// that belong to the same group.
+func groupReplicas(js *jobset.JobSet, groupName string) string {
+	currGroupReplicas := 0
+	for _, rjob := range js.Spec.ReplicatedJobs {
+		if rjob.GroupName == groupName {
+			currGroupReplicas += int(rjob.Replicas)
+		}
+	}
+	return strconv.Itoa(currGroupReplicas)
 }

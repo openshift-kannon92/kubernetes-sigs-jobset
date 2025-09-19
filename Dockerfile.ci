@@ -1,31 +1,32 @@
-ARG BUILDER_IMAGE=registry.ci.openshift.org/ocp/builder:rhel-9-golang-1.23-openshift-4.19
-ARG BASE_IMAGE=registry.ci.openshift.org/ocp/builder:rhel-9-base-openshift-4.19
+# Build the manager binary
+ARG BUILDER_IMAGE=registry.ci.openshift.org/ocp/builder:rhel-9-golang-1.24-openshift-4.20 AS builder
+ARG BASE_IMAGE=registry.ci.openshift.org/ocp/4.20:base-rhel9
 
 # Build the manager binary
 FROM ${BUILDER_IMAGE} AS builder
-
 ARG TARGETOS
 ARG TARGETARCH
 ARG TARGETPLATFORM
 
-ENV GOEXPERIMENT=strictfipsruntime
-
 WORKDIR /workspace
 COPY . .
 
-RUN CGO_ENABLED=1 GOOS=${TARGETOS:-linux} GOARCH=${TARGETARCH} go build -tags strictfipsruntime -mod=vendor -a -o manager main.go
+ENV GOEXPERIMENT=strictfipsruntime
+ENV GOFLAGS="-tags=strictfipsruntime -mod=vendor -a"
+
+RUN make -f Makefile-ocp.mk build-ocp GO_BUILD_ENV='CGO_ENABLED=1 GOOS=${TARGETOS:-linux} GOARCH=${TARGETARCH}'
 
 FROM --platform=$TARGETPLATFORM ${BASE_IMAGE}
 WORKDIR /
-COPY --from=builder /workspace/manager .
+COPY --from=builder /workspace/bin/manager .
 RUN mkdir /licenses
 COPY --from=builder /workspace/LICENSE /licenses/.
 USER 65532:65532
 
 LABEL com.redhat.component="Job Set"
 LABEL name="jobset"
-LABEL release="0.8.0"
-LABEL version="0.8.0"
+LABEL release="0.9.0"
+LABEL version="0.9.0"
 LABEL url="https://github.com/openshift/kubernetes-sigs-jobset"
 LABEL vendor="Red Hat, Inc."
 LABEL description="JobSet is a Kubernetes-native API for managing a group of k8s Jobs as a unit. \

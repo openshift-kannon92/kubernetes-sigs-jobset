@@ -247,6 +247,7 @@ var _ = ginkgo.Describe("JobSet controller", func() {
 								Name:      "replicated-job-b",
 								Succeeded: 2,
 								Ready:     1,
+								Active:    1,
 							},
 							{
 								Name:      "replicated-job-a",
@@ -1394,8 +1395,9 @@ var _ = ginkgo.Describe("JobSet controller", func() {
 								Name: "replicated-job-b",
 							},
 							{
-								Name:  "replicated-job-a",
-								Ready: 1,
+								Name:   "replicated-job-a",
+								Ready:  1,
+								Active: 1,
 							},
 						})
 					},
@@ -1412,11 +1414,13 @@ var _ = ginkgo.Describe("JobSet controller", func() {
 							{
 								Name:      "replicated-job-b",
 								Ready:     3,
+								Active:    3,
 								Suspended: 0,
 							},
 							{
 								Name:      "replicated-job-a",
 								Ready:     1,
+								Active:    1,
 								Suspended: 0,
 							},
 						})
@@ -1460,8 +1464,9 @@ var _ = ginkgo.Describe("JobSet controller", func() {
 								Name: "replicated-job-b",
 							},
 							{
-								Name:  "replicated-job-a",
-								Ready: 1,
+								Name:   "replicated-job-a",
+								Ready:  1,
+								Active: 1,
 							},
 						})
 					},
@@ -1480,8 +1485,9 @@ var _ = ginkgo.Describe("JobSet controller", func() {
 								Active: 3,
 							},
 							{
-								Name:  "replicated-job-a",
-								Ready: 1,
+								Name:   "replicated-job-a",
+								Ready:  1,
+								Active: 1,
 							},
 						})
 					},
@@ -1501,12 +1507,14 @@ var _ = ginkgo.Describe("JobSet controller", func() {
 					checkJobSetState: func(js *jobset.JobSet) {
 						matchJobSetReplicatedStatus(js, []jobset.ReplicatedJobStatus{
 							{
-								Name:  "replicated-job-b",
-								Ready: 3,
+								Name:   "replicated-job-b",
+								Ready:  3,
+								Active: 3,
 							},
 							{
-								Name:  "replicated-job-a",
-								Ready: 1,
+								Name:   "replicated-job-a",
+								Ready:  1,
+								Active: 1,
 							},
 						})
 					},
@@ -1553,8 +1561,9 @@ var _ = ginkgo.Describe("JobSet controller", func() {
 								Name: "replicated-job-b",
 							},
 							{
-								Name:  "replicated-job-a",
-								Ready: 1,
+								Name:   "replicated-job-a",
+								Ready:  1,
+								Active: 1,
 							},
 						})
 					},
@@ -1577,12 +1586,14 @@ var _ = ginkgo.Describe("JobSet controller", func() {
 					checkJobSetState: func(js *jobset.JobSet) {
 						matchJobSetReplicatedStatus(js, []jobset.ReplicatedJobStatus{
 							{
-								Name:  "replicated-job-b",
-								Ready: 3,
+								Name:   "replicated-job-b",
+								Ready:  3,
+								Active: 3,
 							},
 							{
-								Name:  "replicated-job-a",
-								Ready: 1,
+								Name:   "replicated-job-a",
+								Ready:  1,
+								Active: 1,
 							},
 						})
 					},
@@ -1617,8 +1628,9 @@ var _ = ginkgo.Describe("JobSet controller", func() {
 								Name: "replicated-job-b",
 							},
 							{
-								Name:  "replicated-job-a",
-								Ready: 1,
+								Name:   "replicated-job-a",
+								Ready:  1,
+								Active: 1,
 							},
 						})
 					},
@@ -1634,12 +1646,14 @@ var _ = ginkgo.Describe("JobSet controller", func() {
 					checkJobSetState: func(js *jobset.JobSet) {
 						matchJobSetReplicatedStatus(js, []jobset.ReplicatedJobStatus{
 							{
-								Name:  "replicated-job-b",
-								Ready: 3,
+								Name:   "replicated-job-b",
+								Ready:  3,
+								Active: 3,
 							},
 							{
-								Name:  "replicated-job-a",
-								Ready: 1,
+								Name:   "replicated-job-a",
+								Ready:  1,
+								Active: 1,
 							},
 						})
 					},
@@ -1711,8 +1725,9 @@ var _ = ginkgo.Describe("JobSet controller", func() {
 								Name: "rjob-b",
 							},
 							{
-								Name:  "rjob-a",
-								Ready: 1,
+								Name:   "rjob-a",
+								Ready:  1,
+								Active: 1,
 							},
 						})
 					},
@@ -1735,12 +1750,14 @@ var _ = ginkgo.Describe("JobSet controller", func() {
 					checkJobSetState: func(js *jobset.JobSet) {
 						matchJobSetReplicatedStatus(js, []jobset.ReplicatedJobStatus{
 							{
-								Name:  "rjob-b",
-								Ready: 3,
+								Name:   "rjob-b",
+								Ready:  3,
+								Active: 3,
 							},
 							{
-								Name:  "rjob-a",
-								Ready: 1,
+								Name:   "rjob-a",
+								Ready:  1,
+								Active: 1,
 							},
 						})
 					},
@@ -1831,12 +1848,225 @@ var _ = ginkgo.Describe("JobSet controller", func() {
 								Name: "rjob-c",
 							},
 							{
-								Name:  "rjob-b",
-								Ready: 1,
+								Name:   "rjob-b",
+								Ready:  1,
+								Active: 1,
 							},
 							{
 								Name:      "rjob-a",
 								Succeeded: 1,
+							},
+						})
+					},
+				},
+				{
+					// Final check.
+					// Complete all Jobs.
+					jobUpdateFn: completeAllJobs,
+					// All Jobs must be in the succeeded status.
+					checkJobSetState: func(js *jobset.JobSet) {
+						matchJobSetReplicatedStatus(js, []jobset.ReplicatedJobStatus{
+							{
+								Name:      "rjob-c",
+								Succeeded: 3,
+							},
+							{
+								Name:      "rjob-b",
+								Succeeded: 1,
+							},
+							{
+								Name:      "rjob-a",
+								Succeeded: 1,
+							},
+						})
+					},
+				},
+			},
+		}),
+		ginkgo.Entry("DependsOn: rjob-c depends on complete status of rjob-a and rjob-b", &testCase{
+			makeJobSet: func(ns *corev1.Namespace) *testing.JobSetWrapper {
+				return testing.MakeJobSet("depends-on", ns.Name).
+					SuccessPolicy(&jobset.SuccessPolicy{Operator: jobset.OperatorAll, TargetReplicatedJobs: []string{}}).
+					ReplicatedJob(testing.MakeReplicatedJob("rjob-a").
+						Job(testing.MakeJobTemplate("job", ns.Name).PodSpec(testing.TestPodSpec).Obj()).
+						Replicas(1).
+						Obj()).
+					ReplicatedJob(testing.MakeReplicatedJob("rjob-b").
+						Job(testing.MakeJobTemplate("job", ns.Name).PodSpec(testing.TestPodSpec).Obj()).
+						Replicas(1).
+						Obj()).
+					ReplicatedJob(testing.MakeReplicatedJob("rjob-c").
+						Job(testing.MakeJobTemplate("job", ns.Name).PodSpec(testing.TestPodSpec).Obj()).
+						Replicas(3).
+						DependsOn([]jobset.DependsOn{
+							{
+								Name:   "rjob-a",
+								Status: jobset.DependencyComplete,
+							},
+							{
+								Name:   "rjob-b",
+								Status: jobset.DependencyComplete,
+							},
+						}).
+						Obj())
+			},
+			skipCreationCheck: true,
+			steps: []*step{
+				{
+					// First check.
+					// Replicated-Job-A and Replicated-Job-B must be created.
+					checkJobCreation: func(js *jobset.JobSet) {
+						expectedStarts := 2
+						gomega.Eventually(testutil.NumJobs, timeout, interval).WithArguments(ctx, k8sClient, js).Should(gomega.Equal(expectedStarts))
+					},
+					// Set the Replicated-Job-A and Replicated-Job-B status to complete.
+					// Replicated-Job-C depends on complete status of Replicated-Job-A and Replicated-Job-B
+					jobUpdateFn: func(jobList *batchv1.JobList) {
+						completeJob(&jobList.Items[0])
+						completeJob(&jobList.Items[1])
+					},
+					checkJobSetState: func(js *jobset.JobSet) {
+						matchJobSetReplicatedStatus(js, []jobset.ReplicatedJobStatus{
+							{
+								Name: "rjob-c",
+							},
+							{
+								Name:      "rjob-b",
+								Succeeded: 1,
+							},
+							{
+								Name:      "rjob-a",
+								Succeeded: 1,
+							},
+						})
+					},
+				},
+				{
+					// Second check.
+					// Replicated-Job-A, Replicated-Job-B, and Replicated-Job-C must be created.
+					checkJobCreation: func(js *jobset.JobSet) {
+						expectedStarts := 5
+						gomega.Eventually(testutil.NumJobs, timeout, interval).WithArguments(ctx, k8sClient, js).Should(gomega.Equal(expectedStarts))
+					},
+					checkJobSetState: func(js *jobset.JobSet) {
+						matchJobSetReplicatedStatus(js, []jobset.ReplicatedJobStatus{
+							{
+								Name: "rjob-c",
+							},
+							{
+								Name:      "rjob-b",
+								Succeeded: 1,
+							},
+							{
+								Name:      "rjob-a",
+								Succeeded: 1,
+							},
+						})
+					},
+				},
+				{
+					// Final check.
+					// Complete all Jobs.
+					jobUpdateFn: completeAllJobs,
+					// All Jobs must be in the succeeded status.
+					checkJobSetState: func(js *jobset.JobSet) {
+						matchJobSetReplicatedStatus(js, []jobset.ReplicatedJobStatus{
+							{
+								Name:      "rjob-c",
+								Succeeded: 3,
+							},
+							{
+								Name:      "rjob-b",
+								Succeeded: 1,
+							},
+							{
+								Name:      "rjob-a",
+								Succeeded: 1,
+							},
+						})
+					},
+				},
+			},
+		}),
+		ginkgo.Entry("DependsOn: rjob-c depends on ready status of rjob-a and complete status of rjob-b", &testCase{
+			makeJobSet: func(ns *corev1.Namespace) *testing.JobSetWrapper {
+				return testing.MakeJobSet("depends-on", ns.Name).
+					SuccessPolicy(&jobset.SuccessPolicy{Operator: jobset.OperatorAll, TargetReplicatedJobs: []string{}}).
+					ReplicatedJob(testing.MakeReplicatedJob("rjob-a").
+						Job(testing.MakeJobTemplate("job", ns.Name).PodSpec(testing.TestPodSpec).Obj()).
+						Replicas(1).
+						Obj()).
+					ReplicatedJob(testing.MakeReplicatedJob("rjob-b").
+						Job(testing.MakeJobTemplate("job", ns.Name).PodSpec(testing.TestPodSpec).Obj()).
+						Replicas(1).
+						Obj()).
+					ReplicatedJob(testing.MakeReplicatedJob("rjob-c").
+						Job(testing.MakeJobTemplate("job", ns.Name).PodSpec(testing.TestPodSpec).Obj()).
+						Replicas(3).
+						DependsOn([]jobset.DependsOn{
+							{
+								Name:   "rjob-a",
+								Status: jobset.DependencyReady,
+							},
+							{
+								Name:   "rjob-b",
+								Status: jobset.DependencyComplete,
+							},
+						}).
+						Obj())
+			},
+			skipCreationCheck: true,
+			steps: []*step{
+				{
+					// First check.
+					// Replicated-Job-A and Replicated-Job-B must be created.
+					checkJobCreation: func(js *jobset.JobSet) {
+						expectedStarts := 2
+						gomega.Eventually(testutil.NumJobs, timeout, interval).WithArguments(ctx, k8sClient, js).Should(gomega.Equal(expectedStarts))
+					},
+					// Set the Replicated-Job-A status to ready and Replicated-Job-B status to complete.
+					// Replicated-Job-C depends on ready status of Replicated-Job-A and complete status of Replicated-Job-B
+					jobUpdateFn: func(jobList *batchv1.JobList) {
+						readyReplicatedJob(jobList, "rjob-a")
+						completeJob(&jobList.Items[1])
+					},
+					checkJobSetState: func(js *jobset.JobSet) {
+						matchJobSetReplicatedStatus(js, []jobset.ReplicatedJobStatus{
+							{
+								Name: "rjob-c",
+							},
+							{
+								Name:      "rjob-b",
+								Succeeded: 1,
+							},
+							{
+								Name:   "rjob-a",
+								Ready:  1,
+								Active: 1,
+							},
+						})
+					},
+				},
+				{
+					// Second check.
+					// Replicated-Job-A, Replicated-Job-B, and Replicated-Job-C must be created.
+					checkJobCreation: func(js *jobset.JobSet) {
+						expectedStarts := 5
+						gomega.Eventually(testutil.NumJobs, timeout, interval).WithArguments(ctx, k8sClient, js).Should(gomega.Equal(expectedStarts))
+					},
+					checkJobSetState: func(js *jobset.JobSet) {
+						matchJobSetReplicatedStatus(js, []jobset.ReplicatedJobStatus{
+							{
+								Name: "rjob-c",
+							},
+							{
+								Name:      "rjob-b",
+								Succeeded: 1,
+							},
+							{
+								Name:   "rjob-a",
+								Ready:  1,
+								Active: 1,
 							},
 						})
 					},
@@ -1944,8 +2174,9 @@ var _ = ginkgo.Describe("JobSet controller", func() {
 								Suspended: 0,
 							},
 							{
-								Name:  "rjob-a",
-								Ready: 1,
+								Name:   "rjob-a",
+								Ready:  1,
+								Active: 1,
 							},
 						})
 					},
@@ -1961,11 +2192,13 @@ var _ = ginkgo.Describe("JobSet controller", func() {
 							{
 								Name:      "rjob-b",
 								Ready:     3,
+								Active:    3,
 								Suspended: 0,
 							},
 							{
 								Name:      "rjob-a",
 								Ready:     1,
+								Active:    1,
 								Suspended: 0,
 							},
 						})
@@ -2139,6 +2372,7 @@ var _ = ginkgo.Describe("JobSet controller", func() {
 
 func makeAllJobsReady(jl *batchv1.JobList) {
 	for _, job := range jl.Items {
+		job.Status.Active = *job.Spec.Parallelism
 		job.Status.Ready = job.Spec.Parallelism
 		gomega.Eventually(k8sClient.Status().Update(ctx, &job), timeout, interval).Should(gomega.Succeed())
 	}
@@ -2212,13 +2446,31 @@ func completeAllJobs(jobList *batchv1.JobList) {
 }
 
 func completeJob(job *batchv1.Job) {
-	updateJobStatus(job, batchv1.JobStatus{
-		Conditions: append(job.Status.Conditions, batchv1.JobCondition{
-			Type:   batchv1.JobComplete,
-			Status: corev1.ConditionTrue,
-		}),
-		Succeeded: ptr.Deref(job.Spec.Parallelism, 0),
-	})
+	now := metav1.Now()
+	status := batchv1.JobStatus{
+		StartTime: job.Status.StartTime,
+		Conditions: append(job.Status.Conditions, []batchv1.JobCondition{
+			{
+				Type:   batchv1.JobSuccessCriteriaMet,
+				Status: corev1.ConditionTrue,
+			},
+			{
+				Type:   batchv1.JobComplete,
+				Status: corev1.ConditionTrue,
+			},
+		}...),
+		Succeeded:      ptr.Deref(job.Spec.Parallelism, 0),
+		CompletionTime: job.Status.CompletionTime,
+	}
+	// Emulate kube-controller-manager job-controller
+	// since finished Job has constraints for non-empty startTime.
+	if status.StartTime == nil {
+		status.StartTime = &now
+	}
+	if status.CompletionTime == nil {
+		status.CompletionTime = &now
+	}
+	updateJobStatus(job, status)
 }
 
 // mark all jobs that match replicatedJobName as ready
@@ -2232,7 +2484,10 @@ func readyReplicatedJob(jobList *batchv1.JobList, replicatedJobName string) {
 }
 
 func readyJob(job *batchv1.Job) {
-	updateJobStatus(job, batchv1.JobStatus{Ready: job.Spec.Parallelism})
+	updateJobStatus(job, batchv1.JobStatus{
+		Active: *job.Spec.Parallelism,
+		Ready:  job.Spec.Parallelism,
+	})
 }
 
 // removeForegroundDeletionFinalizers will continually fetch the child jobs for a
@@ -2284,7 +2539,6 @@ func updateJobStatus(job *batchv1.Job, status batchv1.JobStatus) {
 		jobGet.Status = status
 		return k8sClient.Status().Update(ctx, &jobGet)
 	}, timeout, interval).Should(gomega.Succeed())
-
 }
 
 type failJobOptions struct {
@@ -2295,13 +2549,26 @@ func failJobWithOptions(job *batchv1.Job, failJobOpts *failJobOptions) {
 	if failJobOpts == nil {
 		failJobOpts = &failJobOptions{}
 	}
-	updateJobStatus(job, batchv1.JobStatus{
-		Conditions: append(job.Status.Conditions, batchv1.JobCondition{
-			Type:   batchv1.JobFailed,
-			Status: corev1.ConditionTrue,
-			Reason: ptr.Deref(failJobOpts.reason, ""),
-		}),
-	})
+	status := batchv1.JobStatus{
+		StartTime: job.Status.StartTime,
+		Conditions: append(job.Status.Conditions, []batchv1.JobCondition{
+			{
+				Type:   batchv1.JobFailureTarget,
+				Status: corev1.ConditionTrue,
+			},
+			{
+				Type:   batchv1.JobFailed,
+				Status: corev1.ConditionTrue,
+				Reason: ptr.Deref(failJobOpts.reason, ""),
+			},
+		}...),
+	}
+	// Emulate kube-controller-manager job-controller
+	// since finished Job has constraints for non-empty startTime.
+	if status.StartTime == nil {
+		status.StartTime = ptr.To(metav1.Now())
+	}
+	updateJobStatus(job, status)
 }
 
 func failJob(job *batchv1.Job) {

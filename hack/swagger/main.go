@@ -18,6 +18,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"runtime/debug"
 	"strings"
 
 	"k8s.io/klog"
@@ -41,8 +42,30 @@ func main() {
 	var oAPIDefs = map[string]common.OpenAPIDefinition{}
 	defs := spec.Definitions{}
 
+	// Get Kubernetes version
+	var k8sVersion string
+	info, ok := debug.ReadBuildInfo()
+	if !ok {
+		fmt.Println("Failed to read build info")
+		return
+	}
+
+	for _, dep := range info.Deps {
+		if dep.Path == "k8s.io/api" {
+			k8sVersion = strings.ReplaceAll(dep.Version, "v0.", "v1.")
+		}
+	}
+	if k8sVersion == "" {
+		fmt.Println("OpenAPI spec generation failed. Unable to get Kubernetes version")
+		return
+	}
+
+	k8sOpenAPISpec := fmt.Sprintf("https://raw.githubusercontent.com/kubernetes/kubernetes/refs/tags/%s/api/openapi-spec/swagger.json", k8sVersion)
 	refCallback := func(name string) spec.Ref {
-		return spec.MustCreateRef("#/definitions/" + common.EscapeJsonPointer(swaggify(name)))
+		if strings.HasPrefix(name, "k8s.io") {
+			return spec.MustCreateRef(k8sOpenAPISpec + "#/definitions/" + swaggify(name))
+		}
+		return spec.MustCreateRef("#/definitions/" + swaggify(name))
 	}
 
 	for k, v := range jobset.GetOpenAPIDefinitions(refCallback) {
@@ -74,11 +97,8 @@ func main() {
 }
 
 func swaggify(name string) string {
-	name = strings.Replace(name, "sigs.k8s.io/jobset/api/", "", -1)
-	name = strings.Replace(name, "k8s.io/api/core/", "", -1)
-	name = strings.Replace(name, "k8s.io/apimachinery/pkg/apis/meta/", "", -1)
-	name = strings.Replace(name, "k8s.io/apimachinery/pkg/api/resource", "", -1)
-	name = strings.Replace(name, "k8s.io/api/batch/", "", -1)
-	name = strings.Replace(name, "/", ".", -1)
+	name = strings.ReplaceAll(name, "sigs.k8s.io/jobset/api/", "")
+	name = strings.ReplaceAll(name, "k8s.io", "io.k8s")
+	name = strings.ReplaceAll(name, "/", ".")
 	return name
 }
